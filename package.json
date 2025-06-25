@@ -1,0 +1,16 @@
+{
+  "name": "eip7702",
+  "version": "1.0.0",
+  "description": "### In standard Ethereum transactions, calling a smart contract function involves setting the to field to the contract’s address and providing the encoded function call data. With EIP-7702, you set the to field to the externally owned account (EOA) itself and include data that targets the implementation contract’s function, along with a signed authorization message.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "ethers": "^6.14.4"
+  }
+}

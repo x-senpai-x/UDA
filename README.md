@@ -1,0 +1,3 @@
+### When you delegate your EOA to a smart contract, you're essentially telling the Ethereum network to execute that contract's code whenever someone interacts with your EOA address.
+
+### In standard Ethereum transactions, calling a smart contract function involves setting the to field to the contract’s address and providing the encoded function call data. With EIP-7702, you set the to field to the externally owned account (EOA) itself and include data that targets the implementation contract’s function, along with a signed authorization message.
