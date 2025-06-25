@@ -25,8 +25,8 @@ This project demonstrates a unified deposit address system using EIP-7702, enabl
 
 1. **Clone the Repository**
    ```sh
-   git clone <your-repo-url>
-   cd EIP7702
+   git clone https://github.com/x-senpai-x/UDA.git
+   cd UDA
    ```
 
 2. **Install Dependencies**
@@ -44,7 +44,6 @@ This project demonstrates a unified deposit address system using EIP-7702, enabl
    - Set RPC URLs, private keys, contract addresses, and recipient address as needed.
 
 4. **Compile and Deploy Contracts**
-   - Edit `contract/foundry.toml` and deployment scripts as needed.
    - Deploy to your chosen testnets using Foundry:
      ```sh
      cd contract
@@ -55,9 +54,8 @@ This project demonstrates a unified deposit address system using EIP-7702, enabl
 5. **Run the Backend Services**
    - From the project root:
      ```sh
-     npm run start
-     # or
-     node index.js
+     brew install tsx
+     tsx listener.ts 
      ```
    - The backend will listen for USDC transfers to the unified deposit address and forward them automatically.
 
