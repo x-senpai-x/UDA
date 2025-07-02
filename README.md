@@ -11,14 +11,14 @@ This project demonstrates a unified deposit address system using EIP-7702, enabl
 
 1. **Smart Contract**: Implements logic to allow a whitelisted relayer to forward USDC from the unified deposit address to a recipient. The contract is upgradeable via EIP-7702, allowing an EOA to become a smart contract wallet.
 2. **Unified Deposit Address**: An EOA is created and then upgraded to a smart contract wallet using EIP-7702, maintaining the same address.
-3. **Backend Services**: Listen for USDC transfers to the unified deposit address on supported testnets. When a deposit is detected, the backend triggers the contract to forward the funds to the recipient.
+3. **Backend Services**: Listen for USDC transfers to the unified deposit address on **both Base and Ethereum Sepolia testnets simultaneously**. When a deposit is detected on either network, the backend triggers the contract to forward the funds to the recipient.
 
 ## Prerequisites
 
 - Node.js (v18+ recommended)
 - npm or yarn
 - Foundry (for Solidity development and deployment)
-- Access to Ethereum testnets (e.g., Sepolia, Base Goerli)
+- Access to Ethereum testnets (e.g., Ethereum, Base Sepolia)
 - USDC test tokens on the relevant testnets
 
 ## Setup
@@ -47,7 +47,7 @@ This project demonstrates a unified deposit address system using EIP-7702, enabl
    - Deploy to your chosen testnets using Foundry:
      ```sh
      cd contract
-     forge script script/DeployUnifiedDepositRelay.s.sol --rpc-url <RPC_URL> --broadcast 
+     forge script script/DeployUnifiedDepositRelay.s.sol --rpc-url <RPC_URL> --private-key <PRIVATE_KEY> --broadcast 
      ```
    - Note the deployed contract addresses for backend configuration.
 
@@ -61,13 +61,14 @@ This project demonstrates a unified deposit address system using EIP-7702, enabl
 
 ## Usage
 
-- Send USDC to the unified deposit address on any supported testnet.
-- The backend will detect the deposit and trigger the contract to forward the funds to the recipient address.
+- Send USDC to the unified deposit address on **either** supported testnet (Base or Sepolia).
+- The backend will detect the deposit on **both networks in parallel** and trigger the contract to forward the funds to the recipient address.
 - Check logs for transaction status and errors.
 
 ## Supported Networks & Contract Addresses
 
-This backend currently works for **Sepolia** and **Base** testnets. To use only one network, simply comment out the undesired testnet configuration in your environment or backend code, and run the service for the desired network.
+This backend listens for USDC deposits on **both Sepolia and Base testnets at the same time**. You can send USDC to the unified deposit address on either network, and the backend will relay the deposit accordingly. To use only one network, simply comment out the undesired testnet configuration in your environment or backend code, and run the service for the desired network.
+
 
 ### Deployed Contract Addresses
 

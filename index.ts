@@ -4,12 +4,16 @@ import { contractABI } from "./contract";
 
 dotenv.config();
 
-// Global variables for reusability
-let provider: ethers.JsonRpcProvider,
-  eoaSigner: ethers.Wallet,
-  relayer: ethers.Wallet,
-  targetAddress: string,
-  usdcAddress: string,
+let provider_base: ethers.JsonRpcProvider,
+  provider_sepolia: ethers.JsonRpcProvider,
+  eoaSigner_base: ethers.Wallet,
+  eoaSigner_sepolia: ethers.Wallet,
+  relayer_base: ethers.Wallet,
+  relayer_sepolia: ethers.Wallet,
+  targetAddress_base: string,
+  targetAddress_sepolia: string,
+  usdcAddress_base: string,
+  usdcAddress_sepolia: string,
   recipientAddress: string;
 
 export async function initializeSigners() {
@@ -17,11 +21,11 @@ export async function initializeSigners() {
   if (
     !process.env.EOA_PRIVATE_KEY ||
     !process.env.RELAYER_PRIVATE_KEY ||
-    // !process.env.DELEGATION_CONTRACT_ADDRESS_BASE ||
+    !process.env.DELEGATION_CONTRACT_ADDRESS_BASE ||
     !process.env.DELEGATION_CONTRACT_ADDRESS_SEPOLIA ||
-    // !process.env.BASE_RPC_URL ||
+    !process.env.BASE_RPC_URL ||
     !process.env.SEPOLIA_RPC_URL ||
-    // !process.env.USDC_ADDRESS_BASE||
+    !process.env.USDC_ADDRESS_BASE||
     !process.env.USDC_ADDRESS_SEPOLIA||
     !process.env.RECIPIENT_ADDRESS
   ) {
@@ -29,59 +33,112 @@ export async function initializeSigners() {
     process.exit(1);
   }
 
-  //Just uncomment the desired Network 
-//   const rpcURL = process.env.BASE_RPC_URL;
-  const rpcURL = process.env.SEPOLIA_RPC_URL;
-//   targetAddress = process.env.DELEGATION_CONTRACT_ADDRESS_BASE;
-  targetAddress = process.env.DELEGATION_CONTRACT_ADDRESS_SEPOLIA;
-//   usdcAddress = process.env.USDC_ADDRESS_BASE;
-  usdcAddress = process.env.USDC_ADDRESS_SEPOLIA;
+  const rpcURL_base = process.env.BASE_RPC_URL;
+  const rpcURL_sepolia = process.env.SEPOLIA_RPC_URL;
+  targetAddress_base = process.env.DELEGATION_CONTRACT_ADDRESS_BASE;
+  targetAddress_sepolia = process.env.DELEGATION_CONTRACT_ADDRESS_SEPOLIA;
+  usdcAddress_base = process.env.USDC_ADDRESS_BASE;
+  usdcAddress_sepolia = process.env.USDC_ADDRESS_SEPOLIA;
+  provider_base = new ethers.JsonRpcProvider(rpcURL_base);
+  provider_sepolia = new ethers.JsonRpcProvider(rpcURL_sepolia);
+  eoaSigner_base = new ethers.Wallet(process.env.EOA_PRIVATE_KEY, provider_base);
+  eoaSigner_sepolia = new ethers.Wallet(process.env.EOA_PRIVATE_KEY, provider_sepolia);
+  relayer_base = new ethers.Wallet(process.env.RELAYER_PRIVATE_KEY, provider_base);
+  relayer_sepolia = new ethers.Wallet(process.env.RELAYER_PRIVATE_KEY, provider_sepolia);
 
-  provider = new ethers.JsonRpcProvider(rpcURL);
-  eoaSigner = new ethers.Wallet(process.env.EOA_PRIVATE_KEY, provider);
-  relayer = new ethers.Wallet(process.env.RELAYER_PRIVATE_KEY, provider);
-  recipientAddress =process.env.RECIPIENT_ADDRESS;
+  recipientAddress = process.env.RECIPIENT_ADDRESS;
 
-  console.log("Unified Deposit Address (EOA to be upgraded):", eoaSigner.address);
-  console.log("Whitelisted Relayer Address:", relayer.address);
+  console.log("Unified Deposit Address (EOA to be upgraded):", eoaSigner_base.address);
+  console.log("Whitelisted Relayer Address:", relayer_base.address);
 
-  const eoaBalance = await provider.getBalance(eoaSigner.address);
-  const relayerBalance = await provider.getBalance(relayer.address);
-  console.log("UDA ETH Balance:", ethers.formatEther(eoaBalance), "ETH");
+  const eoaBalance_base = await provider_base.getBalance(eoaSigner_base.address);
+  const relayerBalance_base = await provider_base.getBalance(relayer_base.address);
+  console.log("UDA ETH Balance on Base:", ethers.formatEther(eoaBalance_base), "ETH");
   console.log(
-    "Relayer ETH Balance:",
-    ethers.formatEther(relayerBalance),
+    "Relayer ETH Balance on Base:",
+    ethers.formatEther(relayerBalance_base),
+    "ETH"
+  );
+  const eoaBalance_sepolia = await provider_sepolia.getBalance(eoaSigner_sepolia.address);
+  const relayerBalance_sepolia = await provider_sepolia.getBalance(relayer_sepolia.address);
+  console.log("UDA ETH Balance on Sepolia:", ethers.formatEther(eoaBalance_sepolia), "ETH");
+  console.log(
+    "Relayer ETH Balance on Sepolia:",
+    ethers.formatEther(relayerBalance_sepolia),
     "ETH"
   );
 }
 
-export async function checkDelegationStatus(address = eoaSigner.address) {
+export async function checkDelegationStatus() {
   console.log("\n=== CHECKING DELEGATION STATUS ===");
-
   try {
-    const code = await provider.getCode(address);
-
-    if (code === "0x") {
-      console.log(`[❌ No EIP-7702 delegation found for ${address}`);
-      return null;
-    }
-    if (code.startsWith("0xef0100")) {
-      const delegatedAddress = "0x" + code.slice(8); // Remove 0xef0100 (8 chars)
-      console.log(`✅ Delegation found for ${address}`);
-      console.log(`📍 Delegated to: ${delegatedAddress}`);
-      console.log(`📝 Full delegation code: ${code}`);
-      return delegatedAddress;
+    const code_base = await provider_base.getCode(eoaSigner_base.address);
+    const code_sepolia = await provider_sepolia.getCode(eoaSigner_sepolia.address);
+    let result = {};
+    // Check Base
+    if (code_base === "0x") {
+      console.log(`[❌ No EIP-7702 delegation found for ${eoaSigner_base.address} on Base`);
+      result["base"] = null;
+    } else if (code_base.startsWith("0xef0100")) {
+      const delegatedAddress = "0x" + code_base.slice(8);
+      console.log(`✅ Delegation found for ${eoaSigner_base.address} on Base`);
+      console.log(`📍 Delegated to: ${delegatedAddress} on Base`);
+      console.log(`📝 Full delegation code: ${code_base} on Base`);
+      result["base"] = delegatedAddress;
     } else {
-      console.log(`❓ Address has code but not EIP-7702 delegation: ${code}`);
-      return null;
+      console.log(`❓ Address has code but not EIP-7702 delegation: ${code_base}`);
+      result["base"] = null;
     }
+    // Check Sepolia
+    if (code_sepolia === "0x") {
+      console.log(`[❌ No EIP-7702 delegation found for ${eoaSigner_sepolia.address} on Sepolia`);
+      result["sepolia"] = null;
+    } else if (code_sepolia.startsWith("0xef0100")) {
+      const delegatedAddress = "0x" + code_sepolia.slice(8);
+      console.log(`✅ Delegation found for ${eoaSigner_sepolia.address} on Sepolia`);  
+      console.log(`📍 Delegated to: ${delegatedAddress} on Sepolia`);
+      console.log(`📝 Full delegation code: ${code_sepolia} on Sepolia`);
+      result["sepolia"] = delegatedAddress;
+    } else {
+      console.log(`❓ Address has code but not EIP-7702 delegation: ${code_sepolia}`);
+      result["sepolia"] = null;
+    }
+    return result;
   } catch (error) {
     console.error("Error checking delegation status:", error);
-    return null;
+    return { base: null, sepolia: null };
   }
 }
 
-async function createAuthorization(nonce: number) {
+export function getDelegatedAddress(statusObj, network) {
+  return statusObj[network] || null;
+}
+
+function getNetworkVars(network: 'base' | 'sepolia') {
+  if (network === 'base') {
+    return {
+      eoaSigner: eoaSigner_base,
+      relayer: relayer_base,
+      provider: provider_base,
+      targetAddress: targetAddress_base,
+      usdcAddress: usdcAddress_base,
+    };
+  } else if (network === 'sepolia') {
+    return {
+      eoaSigner: eoaSigner_sepolia,
+      relayer: relayer_sepolia,
+      provider: provider_sepolia,
+      targetAddress: targetAddress_sepolia,
+      usdcAddress: usdcAddress_sepolia,
+    };
+  }
+  throw new Error('Unsupported network: ' + network);
+}
+export { getNetworkVars };
+
+
+async function createAuthorization(nonce: number, network: 'base' | 'sepolia') {
+  const { eoaSigner, provider, targetAddress } = getNetworkVars(network);
   const auth = await eoaSigner.authorize({
     address: targetAddress, //Authorize the contract 
     nonce: nonce,
@@ -91,39 +148,32 @@ async function createAuthorization(nonce: number) {
   return auth;
 }
 
-export async function sendDelegateTransaction() {
-  console.log("\n=== Sending Batched Transaction to Authorize Relayer");
+export async function sendDelegateTransaction(network: 'base' | 'sepolia') {
+  const { eoaSigner } = getNetworkVars(network);
+  console.log(`\n=== Sending Transaction to Authorize Relayer on ${network}`);
   const currentNonce = await eoaSigner.getNonce();
   console.log("Current nonce for EOA:", currentNonce);
-  // Create authorization with incremented nonce for same-wallet transactions
-  const auth = await createAuthorization(currentNonce + 1);
-  // Prepare calls 
-  const calls = [
-    // to address, value, data
-    [ethers.ZeroAddress, ethers.parseEther("0"), "0x"],
-    [recipientAddress, ethers.parseEther("0"), "0x"],
-  ];
-
-  // Create contract instance and execute
+  const auth = await createAuthorization(currentNonce + 1, network);
   const delegatedContract = new ethers.Contract(
     eoaSigner.address,
     contractABI,
-    eoaSigner
+    eoaSigner 
   );
   const tx = await delegatedContract["execute((address,uint256,bytes)[])"](
-    calls,
+    [],
     {
       type: 4,
       authorizationList: [auth],
     }
   );
-  console.log("Delegation transaction sent:", tx.hash);
+  console.log(`[${network}] Delegation transaction sent:`, tx.hash);
   const receipt = await tx.wait();
-  console.log("Receipt for delegation transaction:", receipt);
+  console.log(`[${network}] Receipt for delegation transaction:`, receipt);
   return receipt;
 }
 
-async function createSignatureForCalls(calls: any[], contractNonce: number) {
+async function createSignatureForCalls(calls: any[], contractNonce: number, network: 'base' | 'sepolia') {
+  const { eoaSigner } = getNetworkVars(network);
   // Encode the calls for signature
   let encodedCalls = "0x";
   for (const call of calls) {
@@ -140,8 +190,9 @@ async function createSignatureForCalls(calls: any[], contractNonce: number) {
   return await eoaSigner.signMessage(ethers.getBytes(digest));
 }
 
-export async function sendRelayTransaction(value) {
-  console.log("\n=== Relay Transaction ===");
+export async function sendRelayTransaction(value, network: 'base' | 'sepolia') {
+  const { eoaSigner, relayer, usdcAddress } = getNetworkVars(network);
+  console.log(`\n=== Relay Transaction on ${network} ===`);
   // Prepare ERC20 transfer call data
   const erc20ABI = [
     "function transfer(address to, uint256 amount) external returns (bool)",
@@ -156,7 +207,6 @@ export async function sendRelayTransaction(value) {
         value, 
       ]),
     ],
-    [recipientAddress, ethers.parseEther("0"), "0x"],
   ];
 
   // Create contract instance 
@@ -166,25 +216,24 @@ export async function sendRelayTransaction(value) {
     relayer
   );
   const contractNonce = await delegatedContract.nonce();
-  const signature = await createSignatureForCalls(calls, contractNonce);
+  const signature = await createSignatureForCalls(calls, contractNonce, network);
 
   // Execute relay transaction
   const tx = await delegatedContract[
     "execute((address,uint256,bytes)[],bytes)"
-  ](calls, signature, {
-  });
-  console.log("Relay transaction sent:", tx.hash);
+  ](calls, signature, {});
+  console.log(`[${network}] Relay transaction sent:`, tx.hash);
   const receipt = await tx.wait();
-  console.log(" Receipt for relay transaction:", receipt);
-  console.log("Relayed tx block:", receipt.blockNumber);
+  console.log(`[${network}] Receipt for relay transaction:`, receipt);
+  console.log(`[${network}] Relayed tx block:`, receipt.blockNumber);
   return receipt;
 }
 
-export async function revokeDelegation() {
-  console.log("\n=== REVOKING DELEGATION ===");
-
+export async function revokeDelegation(network: 'base' | 'sepolia') {
+  const { eoaSigner, provider } = getNetworkVars(network);
+  console.log(`\n=== REVOKING DELEGATION on ${network} ===`);
   const currentNonce = await eoaSigner.getNonce();
-  console.log("Current nonce for revocation:", currentNonce);
+  console.log(`[${network}] Current nonce for revocation:`, currentNonce);
 
   // Create authorization to revoke ie setting address to zero)
   const revokeAuth = await eoaSigner.authorize({
@@ -193,16 +242,16 @@ export async function revokeDelegation() {
     chainId: provider._network.chainId,
   });
 
-  console.log("Revocation authorization created");
+  console.log(`[${network}] Revocation authorization created`);
   const tx = await eoaSigner.sendTransaction({
     type: 4,
     to: eoaSigner.address,
     authorizationList: [revokeAuth],
   });
-  console.log("Revocation transaction sent:", tx.hash);
+  console.log(`[${network}] Revocation transaction sent:`, tx.hash);
 
   const receipt = await tx.wait();
-  console.log("Delegation revoked successfully!");
+  console.log(`[${network}] Delegation revoked successfully!`);
 
   return receipt;
 }

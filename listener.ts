@@ -1,68 +1,87 @@
 import dotenv from "dotenv";
 import { ethers } from "ethers";
-import { initializeSigners, revokeDelegation, sendRelayTransaction, checkDelegationStatus, sendDelegateTransaction} from "./index";
+import { initializeSigners, revokeDelegation, sendRelayTransaction, checkDelegationStatus, sendDelegateTransaction, getDelegatedAddress } from "./index";
 
 dotenv.config();
 
-// const rpcURL = process.env.BASE_RPC_URL;//change this for a different testnet
-const rpcURL = process.env.SEPOLIA_RPC_URL;//change this for a different testnet
-// const targetAddress=process.env.DELEGATION_CONTRACT_ADDRESS_BASE;//change this for different testnet
-const targetAddress=process.env.DELEGATION_CONTRACT_ADDRESS_SEPOLIA;//change this for different testnet
-// const usdcAddress = process.env.USDC_ADDRESS_BASE!;
-const usdcAddress = process.env.USDC_ADDRESS_SEPOLIA!;
+const rpcURL_base = process.env.BASE_RPC_URL;
+const rpcURL_sepolia = process.env.SEPOLIA_RPC_URL;
+const targetAddress_base=process.env.DELEGATION_CONTRACT_ADDRESS_BASE;
+const targetAddress_sepolia=process.env.DELEGATION_CONTRACT_ADDRESS_SEPOLIA;
+const usdcAddress_base = process.env.USDC_ADDRESS_BASE!;
+const usdcAddress_sepolia = process.env.USDC_ADDRESS_SEPOLIA!;
 
 const eoaAddress = process.env.EOA_ADDRESS!;
 const iface = new ethers.Interface([
     'event Transfer(address indexed from, address indexed to, uint256 value)',
   ]);
-const provider = new ethers.JsonRpcProvider(rpcURL);
-const usdc = new ethers.Contract(usdcAddress, iface, provider);
+const provider_base = new ethers.JsonRpcProvider(rpcURL_base);
+const provider_sepolia = new ethers.JsonRpcProvider(rpcURL_sepolia);
+const usdc_base = new ethers.Contract(usdcAddress_base, iface, provider_base);
+const usdc_sepolia = new ethers.Contract(usdcAddress_sepolia, iface, provider_sepolia);
 
 // Only Run once to setup delegation
 async function ensureDelegation() {
-  console.log("Checking if EIP-7702 delegation is already set for Unified Deposit Address...");
-
+  console.log("Checking if EIP-7702 delegation is already set for Unified Deposit Address on both Base and Ethereum ... ");
   await initializeSigners();
+  const delegationStatus = await checkDelegationStatus();
+  const delegated_base = getDelegatedAddress(delegationStatus, "base");
+  const delegated_sepolia = getDelegatedAddress(delegationStatus, "sepolia");
 
-  const delegated = await checkDelegationStatus();
-
-  if (!delegated) {
-    console.log("Delegation not found — setting EIP-7702 delegation via Batch Transaction");
-    await sendDelegateTransaction();
-  } 
-  else if (delegated.toLowerCase()!=targetAddress?.toLowerCase()){
-    console.log("Delegated contract address is not the target implementation contract — resetting delegation ...");
-    await revokeDelegation(); // or revokeDelegatione
-    await sendDelegateTransaction();
+  // Check Base
+  if (!delegated_base) {
+    console.log("Delegation not found on Base — setting EIP-7702 delegation via Batch Transaction");
+    await sendDelegateTransaction('base');
+  } else if (delegated_base.toLowerCase() !== targetAddress_base?.toLowerCase()) {
+    console.log("Delegated contract address on Base is not the target implementation contract — resetting delegation ...");
+    await revokeDelegation('base');
+    await sendDelegateTransaction('base');
+  } else {
+    console.log("✅ EIP-7702 delegation already active for Unified Deposit Address on Base, no action needed.");
   }
-  else  {
-    console.log(" ✅ EIP-7702 delegation already active for Unified Deposit Address, no action needed.");
+
+  // Check Sepolia
+  if (!delegated_sepolia) {
+    console.log("Delegation not found on Sepolia — setting EIP-7702 delegation via Batch Transaction");
+    await sendDelegateTransaction('sepolia');
+  } else if (delegated_sepolia.toLowerCase() !== targetAddress_sepolia?.toLowerCase()) {
+    console.log("Delegated contract address on Sepolia is not the target implementation contract — resetting delegation ...");
+    await revokeDelegation('sepolia');
+    await sendDelegateTransaction('sepolia');
+  } else {
+    console.log("✅ EIP-7702 delegation already active for Unified Deposit Address on Sepolia, no action needed.");
   }
 }
 
 //Watch USDC transfers and trigger relay
-console.log(`Watching USDC transfers to Unified Deposit Address (${eoaAddress}) on this chain...`);
+console.log(`Watching USDC transfers to Unified Deposit Address (${eoaAddress}) ...`);
 
-const processEvent = async (from: string,value: ethers.BigNumberish) => {
+const processEvent = async (from: string, value: ethers.BigNumberish, network: 'base' | 'sepolia') => {
   try {
-    console.log(`Watching USDC transfers to Unified Deposit Address (${eoaAddress}) on this chain...`);
-
-    console.log(`${ethers.formatUnits(value, 6)} USDC received from ${from}, triggering relay to recipient address...`);
-
-    const result = await sendRelayTransaction(value);
-    console.log("USDC transfer complete");
+    console.log(`[${network}] Watching USDC transfers to Unified Deposit Address (${eoaAddress}) on this chain...`);
+    console.log(`[${network}] ${ethers.formatUnits(value, 6)} USDC received from ${from}, triggering relay to recipient address...`);
+    const result = await sendRelayTransaction(value, network);
+    console.log(`[${network}] USDC transfer complete`);
   } catch (error) {
-    console.error("❌ Relay error:", error);
+    console.error(`[${network}] Relay error:`, error);
   }
 };
 
-usdc.on("Transfer", async (from, to,value) => {
+// Listen for USDC transfers on both Base and Sepolia
+usdc_base.on("Transfer", async (from, to, value) => {
   if (to.toLowerCase() === eoaAddress.toLowerCase()) {
-    await processEvent(from,value);
+    await processEvent(from, value, 'base');
   }
 });
 
-provider.on("error", console.error);
+usdc_sepolia.on("Transfer", async (from, to, value) => {
+  if (to.toLowerCase() === eoaAddress.toLowerCase()) {
+    await processEvent(from, value, 'sepolia');
+  }
+});
+
+provider_base.on("error", console.error);
+provider_sepolia.on("error", console.error);
 
 ensureDelegation().catch((e) => {
   console.error("Error during startup delegation setup:", e);
